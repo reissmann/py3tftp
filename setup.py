@@ -29,6 +29,9 @@ setup(
     keywords='async asynchronous tftp',
     packages=['py3tftp'],
     include_package_data=True,
+    install_requires=[
+        'sh >= 1.12',
+    ],
     entry_points={
         'console_scripts': [
             'py3tftp = py3tftp.__main__:main'

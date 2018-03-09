@@ -22,10 +22,11 @@ def print_version():
 
 def parse_cli_arguments():
     parser = argparse.ArgumentParser(epilog=EPILOG)
-    parser.add_argument('--host',
-                        default='0.0.0.0',
-                        help=('IP of the interface the server will listen on. '
-                              'Default: 0.0.0.0'))
+    parser.add_argument(
+        '--host',
+        default='0.0.0.0',
+        help=('IP of the interface the server will listen on. '
+              'Default: 0.0.0.0'))
     parser.add_argument(
         '-p',
         '--port',
@@ -46,13 +47,32 @@ def parse_cli_arguments():
         type=float,
         help=('Timeout before the server gives up on a transfer and closes '
               'the connection. Default: 3.'))
-    parser.add_argument('-l', '--file-log', help='Append output to log file.')
-    parser.add_argument('-v',
-                        '--verbose',
-                        action='store_true',
-                        help='Enable debug-level logging.')
-    parser.add_argument('--version', action='store_true')
-
+    parser.add_argument(
+        '-l',
+        '--file-log',
+        help='Append output to log file.')
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        action='store_true',
+        help='Enable debug-level logging.')
+    parser.add_argument(
+        '--version',
+        action='store_true')
+    parser.add_argument(
+        '-d',
+        '--directory',
+        dest="directory",
+        default='.',
+        type=str,
+        help='The directory to serve.')
+    parser.add_argument(
+        '-r',
+        '--repo',
+        dest="repo",
+        default='./repo',
+        type=str,
+        help='The git repository location.')
     args = parser.parse_args()
 
     if args.verbose:

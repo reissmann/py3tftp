@@ -1,14 +1,18 @@
 import os
 import os.path as opath
 
+import logging
 
-def sanitize_fname(fname):
+from shutil import copyfile
+from sh import git, cd
+
+
+def sanitize_fname(directory, fname):
     """
     Ensures that fname is a path under the current working directory.
     """
-    root_dir = os.getcwd()
     return opath.join(
-        bytes(root_dir, encoding='ascii'),
+        bytes(directory, encoding='ascii'),
         opath.normpath(
             b'/' + fname).lstrip(b'/'))
 
@@ -23,15 +27,16 @@ class FileReader(object):
     When it goes out of scope, it ensures the file is closed.
     """
 
-    def __init__(self, fname, chunk_size=0):
-        self.fname = sanitize_fname(fname)
+    def __init__(self, fname, directory, chunk_size=0):
+        self.fname = sanitize_fname(directory, fname)
         self.chunk_size = chunk_size
+        self.directory = directory
         self._f = None
         self._f = self._open_file()
         self.finished = False
 
     def _open_file(self):
-        return open(self.fname, 'rb')
+        return open(self.directory + b'/' + self.fname, 'rb')
 
     def read_chunk(self, size=None):
         size = size or self.chunk_size
@@ -58,14 +63,16 @@ class FileWriter(object):
       is less than chunk_size.
     When it goes out of scope, it ensures the file is closed.
     """
-    def __init__(self, fname, chunk_size):
-        self.fname = fname
+    def __init__(self, fname, directory, repo, chunk_size):
+        self.fname = fname.decode()
         self.chunk_size = chunk_size
+        self.directory = directory
+        self.repo = repo
         self._f = None
         self._f = self._open_file()
 
     def _open_file(self):
-        return open(self.fname, 'xb')
+        return open(self.directory + '/' + self.fname, 'wb')
 
     def _flush(self):
         if self._f:
@@ -80,5 +87,24 @@ class FileWriter(object):
         return bytes_written
 
     def __del__(self):
+        cd(self.repo)
+
+        newname = self.fname.split('-')[0]
+        logging.info ('Copying file %s to %s' % (self.fname, newname))
+        copyfile(self.directory + '/' + self.fname, self.repo + '/' + newname)
+
+        try:
+            logging.info('Adding the file to git')
+            git.add(newname)
+
+            logging.info('Committing the file')
+            git.commit('-m', 'changes to ' + newname)
+
+            logging.info('Pushing ...')
+            git.push()
+
+        except:
+            pass
+
         if self._f and not self._f.closed:
             self._f.close()

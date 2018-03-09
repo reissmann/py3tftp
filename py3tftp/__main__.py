@@ -18,7 +18,7 @@ def main():
     loop = asyncio.get_event_loop()
 
     listen = loop.create_datagram_endpoint(
-        lambda: TFTPServerProtocol(args.host, loop, timeouts),
+        lambda: TFTPServerProtocol(args, loop, timeouts),
         local_addr=(args.host, args.port,))
 
     transport, protocol = loop.run_until_complete(listen)

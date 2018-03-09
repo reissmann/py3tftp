@@ -15,13 +15,15 @@ class BaseTFTPProtocol(asyncio.DatagramProtocol):
 
     default_opts = {b'ack_timeout': 0.5, b'timeout': 5.0, b'blksize': 512}
 
-    def __init__(self, packet, file_handler_cls, remote_addr, extra_opts=None):
+    def __init__(self, packet, file_handler_cls, remote_addr, args, extra_opts=None):
         self.packet_factory = TFTPPacketFactory(
             supported_opts=self.supported_opts,
             default_opts=self.default_opts)
 
         self.remote_addr = remote_addr
         self.packet = self.packet_factory.from_bytes(packet)
+        self.directory = args.directory
+        self.repo = args.repo
         self.extra_opts = extra_opts or {}
         self.file_handler_cls = file_handler_cls
         self.retransmit = None
@@ -72,10 +74,10 @@ class BaseTFTPProtocol(asyncio.DatagramProtocol):
                                                         r_opts=self.r_opts)
             else:
                 pkt = self.next_datagram()
-        except FileExistsError:
-            logging.error('"{}" already exists! Cannot overwrite'.format(
-                self.filename))
-            pkt = self.packet_factory.err_file_exists()
+#        except FileExistsError:
+#            logging.error('"{}" already exists! Cannot overwrite'.format(
+#                self.filename))
+#            pkt = self.packet_factory.err_file_exists()
         except PermissionError:
             logging.error('Insufficient permissions to operate on "{}"'.format(
                 self.filename))
@@ -210,8 +212,8 @@ class BaseTFTPProtocol(asyncio.DatagramProtocol):
 
 
 class WRQProtocol(BaseTFTPProtocol):
-    def __init__(self, wrq, file_handler_cls, addr, opts):
-        super().__init__(wrq, file_handler_cls, addr, opts)
+    def __init__(self, wrq, file_handler_cls, addr, args, opts):
+        super().__init__(wrq, file_handler_cls, addr, args, opts)
         logging.info('Initiating WRQProtocol with {0}'.format(
             self.remote_addr))
 
@@ -225,6 +227,8 @@ class WRQProtocol(BaseTFTPProtocol):
     def initialize_transfer(self):
         self.counter = 0
         self.file_handler = self.file_handler_cls(self.filename,
+                                                  self.directory,
+                                                  self.repo,
                                                   self.opts[b'blksize'])
 
     def datagram_received(self, data, addr):
@@ -255,8 +259,8 @@ class WRQProtocol(BaseTFTPProtocol):
 
 
 class RRQProtocol(BaseTFTPProtocol):
-    def __init__(self, rrq, file_handler_cls, addr, opts):
-        super().__init__(rrq, file_handler_cls, addr, opts)
+    def __init__(self, rrq, file_handler_cls, addr, args, opts):
+        super().__init__(rrq, file_handler_cls, addr, args, opts)
         logging.info('Initiating RRQProtocol with {0}'.format(
             self.remote_addr))
 
@@ -269,6 +273,7 @@ class RRQProtocol(BaseTFTPProtocol):
     def initialize_transfer(self):
         self.counter = 1
         self.file_handler = self.file_handler_cls(self.filename,
+                                                  self.directory,
                                                   self.opts[b'blksize'])
 
     def datagram_received(self, data, addr):
@@ -292,10 +297,11 @@ class RRQProtocol(BaseTFTPProtocol):
 
 
 class BaseTFTPServerProtocol(asyncio.DatagramProtocol):
-    def __init__(self, host_interface, loop, extra_opts):
-        self.host_interface = host_interface
+    def __init__(self, args, loop, extra_opts):
+        self.host_interface = args.host
         self.loop = loop
         self.extra_opts = extra_opts
+        self.args = args
         self.packet_factory = TFTPPacketFactory()
 
     def select_protocol(self, request):
@@ -329,7 +335,7 @@ class BaseTFTPServerProtocol(asyncio.DatagramProtocol):
         file_handler_cls = self.select_file_handler(first_packet)
 
         connect = self.loop.create_datagram_endpoint(
-            lambda: protocol(data, file_handler_cls, addr, self.extra_opts),
+            lambda: protocol(data, file_handler_cls, addr, self.args, self.extra_opts),
             local_addr=(self.host_interface,
                         0, ))
 
